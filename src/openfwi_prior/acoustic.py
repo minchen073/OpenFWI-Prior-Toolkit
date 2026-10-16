@@ -1,14 +1,20 @@
-"""First-order acoustic forward and adjoint interfaces on CUDA device 0."""
+"""Acoustic interfaces with CuPy adjoint and native PyTorch autograd backends."""
 
 import torch
 
 
-def forward(velocity_m_s):
+def forward(velocity_m_s, backend="cupy", block_size=20):
     """Map a (70, 70) velocity field to (5, 1000, 70) pressure observations.
 
-    Inputs must be finite positive floating-point tensors on CUDA device 0.
+    The CuPy backend uses CUDA device 0; the torch backend supports CPU and CUDA.
     The result is float32; wave propagation and adjoint accumulation use float64.
     """
+    if backend == "torch":
+        from .physics_torch import forward as torch_forward
+
+        return torch_forward(velocity_m_s, block_size=block_size)
+    if backend != "cupy":
+        raise ValueError("backend must be 'cupy' or 'torch'")
     if velocity_m_s.shape != (70, 70) or not velocity_m_s.is_floating_point():
         raise ValueError("Expected a floating-point (70, 70) velocity tensor")
     if velocity_m_s.device != torch.device("cuda:0"):
@@ -22,7 +28,7 @@ def forward(velocity_m_s):
     return seismic_master_forward_modeling(velocity_m_s)
 
 
-def adjoint(velocity_m_s, data_cotangent):
+def adjoint(velocity_m_s, data_cotangent, backend="cupy", block_size=20):
     """Return J(velocity)^T data_cotangent, in the input velocity units.
 
     The data cotangent is the derivative of a scalar objective with respect to
@@ -37,5 +43,5 @@ def adjoint(velocity_m_s, data_cotangent):
         raise ValueError("Data cotangent must be finite")
     with torch.enable_grad():
         velocity = velocity_m_s.detach().requires_grad_(True)
-        predicted = forward(velocity)
+        predicted = forward(velocity, backend=backend, block_size=block_size)
         return torch.autograd.grad(predicted, velocity, data_cotangent.detach())[0]

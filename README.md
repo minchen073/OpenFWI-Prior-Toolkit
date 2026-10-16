@@ -1,13 +1,24 @@
-# OpenFWI Prior Toolkit
+# Physical-State-Guided Diffusion Sampling for Full-Waveform Inversion
 
-Acoustic forward and adjoint operators, unconditional diffusion-prior training,
-and pretrained EDM models for four OpenFWI velocity families.
+Implementation accompanying **Physical-State-Guided Diffusion Sampling for
+Full-Waveform Inversion**, by Chen Min, Haowen Jiang, Zheng Ma, and Xiong-Bin Yan.
 
-The toolkit contains a standalone CUDA acoustic solver, a PyTorch gradient
-interface, training configurations, one pretrained EMA model per family, and
-unconditional velocity-model generation. It supports research on physical
-models and generative priors. PSG-conditioned inversion and its reproduction
-workflow are outside the scope of this package.
+This repository provides the currently released implementation components of
+our work. The current release includes:
+
+- **Acoustic modeling and gradients:** a CuPy forward solver with a discrete
+  adjoint, and a native PyTorch solver whose gradients are computed entirely
+  by automatic differentiation.
+- **Diffusion-prior training:** the EDM network, training script, and dataset
+  configurations for FlatVel-B, FlatFault-B, CurveVel-B, and CurveFault-B.
+- **Pretrained priors:** one 400,000-step EMA model per dataset.
+- **Unconditional generation:** 18-step EDM Heun sampling and 1000-step DDIM
+  sampling on a VP noise schedule, both using the same pretrained EDM priors.
+- **Example data:** one velocity model and its seismic observation per dataset.
+
+The full PSG inversion implementation and experiment reproduction workflow
+will be released after publication. The modules available here can be used
+independently for acoustic modeling and diffusion-prior research.
 
 ## Installation
 
@@ -30,11 +41,15 @@ checksums, and skips existing files that already match. The total download is
 approximately 394 MiB. Model and example files are distributed through Releases
 and are not stored in Git history.
 
-CuPy and an NVIDIA CUDA GPU are required for acoustic propagation. Training
-and unconditional sampling use PyTorch; sampling also supports `--device cpu`.
-The acoustic example uses logical CUDA device 0. To select another physical
-GPU, set `CUDA_VISIBLE_DEVICES` before starting Python. Use one acoustic
-worker per process; its CUDA graphs and buffers are shared within the process.
+The **CuPy backend** requires an NVIDIA CUDA GPU and CuPy; its acoustic calls
+use logical CUDA device 0. Select another physical GPU with
+`CUDA_VISIBLE_DEVICES` before starting Python. Use one CuPy acoustic worker per
+process because its CUDA graphs and buffers are shared within the process.
+
+The **PyTorch autograd backend** has no CuPy dependency and supports CPU and
+CUDA. GPU execution is recommended for the full acoustic grid. Training and
+unconditional generation also use PyTorch; generation supports `--device cpu`.
+If using only PyTorch, omit the CuPy installation command above.
 
 ## Included resources
 
@@ -58,49 +73,93 @@ training requires the full velocity files described below.
 
 ## Unconditional generation
 
+Both samplers load the same EDM checkpoint and draw their initial Gaussian
+noise from the specified seed.
+
+| Sampler | Command option | Default steps | Denoiser evaluations | Noise schedule |
+|---|---|---:|---:|---|
+| EDM Heun | `--sampler edm-heun` | 18 | 35 | EDM, sigma 80 → 0.002 → 0, rho = 7 |
+| VP DDIM | `--sampler vp-ddim` | 1000 | 1000 | Continuous VP, time 1 → 0.001 → 0, eta = 0 |
+
+**18-step EDM Heun:**
+
 ```bash
 python scripts/sample.py \
   --checkpoint assets/checkpoints/FlatVel-B_EDM_ema_400k.pt \
-  --num-samples 4 --steps 40 --seed 42 \
-  --output outputs/flatvel_samples
+  --sampler edm-heun --steps 18 --num-samples 4 --seed 42 \
+  --output outputs/flatvel_edm_heun
+```
+
+**1000-step VP DDIM:**
+
+```bash
+python scripts/sample.py \
+  --checkpoint assets/checkpoints/FlatVel-B_EDM_ema_400k.pt \
+  --sampler vp-ddim --steps 1000 --num-samples 4 --seed 42 \
+  --output outputs/flatvel_vp_ddim
 ```
 
 Use the corresponding checkpoint filename for each of the other families.
-The script uses deterministic Heun integration of the EDM probability-flow ODE,
-with a noise range of 0.002–80 and schedule exponent 7. The random seed controls
-the initial Gaussian noise. It writes `samples.npz`, `samples.png`, and
-`settings.json` to a new output directory.
+When `--steps` is omitted, the selected sampler uses the default shown above.
+The VP sampler uses `beta(t) = 0.1 + 19.9 t`, with
+`alpha_bar(t) = exp(-0.1 t - 19.9 t² / 2)`. At each step it converts the VP
+state to EDM coordinates, evaluates the clean-velocity estimate, and applies
+a deterministic DDIM update. Its equivalent EDM noise at time 1 is about
+152.17; this is determined by the VP schedule and is not capped at the EDM
+Heun endpoint of 80. See [sampling details](docs/SAMPLING.md) for the equations.
 
-The saved arrays contain normalized fields and velocities in m/s. Samples are
-not clipped; the plot uses a fixed 1500–4500 m/s color range. These are draws
-from an unconditional velocity prior and do not use seismic observations.
+Each run writes `samples.npz`, `samples.png`, and `settings.json` to a new
+output directory. Arrays contain normalized fields and velocities in m/s.
+Samples are not clipped; the plot uses a fixed 1500–4500 m/s color range.
+These are unconditional prior samples and do not use seismic observations.
 
-## Forward and adjoint example
+## Acoustic forward and gradient implementations
+
+Both backends use the same grid, wavelet, absorbing boundary, and observation
+layout. They return float32 observations and use float64 internally.
+
+| Backend | Gradient calculation | Devices | Additional dependency |
+|---|---|---|---|
+| `cupy` | Discrete adjoint through a custom PyTorch backward | CUDA device 0 | CuPy |
+| `torch` | Native PyTorch autograd through the time-stepping operations | CPU or CUDA | None beyond PyTorch |
+
+**CuPy forward and adjoint:**
 
 ```bash
-python scripts/acoustic_example.py \
-  --example assets/examples/FlatVel-B.npz \
-  --output outputs/acoustic
+python scripts/acoustic_example.py --backend cupy --device cuda:0 \
+  --example assets/examples/FlatVel-B.npz --output outputs/acoustic_cupy
 ```
 
-The example smooths the input velocity, predicts seismograms, and evaluates
+**Native PyTorch forward and automatic differentiation:**
+
+```bash
+python scripts/acoustic_example.py --backend torch --device cuda:0 \
+  --example assets/examples/FlatVel-B.npz --output outputs/acoustic_torch
+```
+
+For the torch backend, `--device cpu` enables CPU execution. Its
+`--block-size` option (default 20 time steps) controls activation checkpointing,
+which reduces the memory required by automatic differentiation. No hand-written
+adjoint or custom backward is used by this backend.
+
+The example smooths the input velocity, predicts seismograms, and computes
 the velocity gradient of half the mean-squared data residual. It saves the
-input velocity, predicted observations, and gradient. It also checks that the
-explicit adjoint interface agrees with PyTorch's gradient interface.
+input velocity, predictions, and gradient, and checks the explicit
+vector-Jacobian interface against differentiation of the scalar objective.
 
 ```python
 import torch
 from openfwi_prior.acoustic import forward, adjoint
 
-# v: (70, 70), m/s; observed: (5, 1000, 70), both on CUDA device 0.
+# v: (70, 70), m/s; observed: (5, 1000, 70), on the same device.
+backend = "torch"  # Use "cupy" for the CUDA discrete-adjoint implementation.
 v = v.detach().requires_grad_(True)
-predicted = forward(v)
+predicted = forward(v, backend=backend)
 loss = 0.5 * (predicted - observed).square().mean()
 gradient = torch.autograd.grad(loss, v)[0]
 
-# An arbitrary data-space cotangent can also be applied explicitly.
 cotangent = (predicted.detach() - observed) / observed.numel()
-gradient_explicit = adjoint(v.detach(), cotangent)
+gradient_explicit = adjoint(v.detach(), cotangent, backend=backend)
 ```
 
 See [the operator specification](docs/OPERATORS.md) for discretization, units,

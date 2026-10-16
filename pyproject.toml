@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "openfwi-prior-toolkit"
-version = "0.1.0"
-description = "Acoustic forward and adjoint operators and unconditional EDM velocity priors"
+version = "0.2.0"
+description = "Released implementation components for Physical-State-Guided Diffusion Sampling for Full-Waveform Inversion"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["numpy>=1.24,<3", "scipy>=1.10", "torch>=2.4", "PyYAML>=6", "matplotlib>=3.7"]

@@ -18,8 +18,7 @@ pytestmark = pytest.mark.skipif(
     "family", ["FlatVel-B", "FlatFault-B", "CurveVel-B", "CurveFault-B"]
 )
 def test_full_discrete_forward_and_gradient(family):
-    from native_acoustic import native_forward
-    from openfwi_prior.physics import seismic_master_forward_modeling
+    from openfwi_prior.acoustic import forward
 
     torch.cuda.set_device(0)
     torch.set_num_threads(4)
@@ -31,10 +30,9 @@ def test_full_discrete_forward_and_gradient(family):
         ).astype(np.float64)
         target = torch.tensor(data["observation"], device="cuda")
     x = torch.tensor(v, device="cuda", requires_grad=True)
-    native, _ = native_forward(x)
-    native = native.float()
+    native = forward(x, backend="torch")
     for squared in [True, False]:
-        prediction = seismic_master_forward_modeling(x)
+        prediction = forward(x, backend="cupy")
         torch.testing.assert_close(prediction, native, rtol=1e-6, atol=1e-10)
         residual = prediction - target
         reference_residual = native - target
@@ -51,3 +49,21 @@ def test_full_discrete_forward_and_gradient(family):
             / torch.linalg.vector_norm(expected)
         ).item()
         assert error < 1e-8, f"{family}: relative gradient L2 error {error}"
+
+
+def test_float32_tied_minimum_and_checkpoint_blocks():
+    from openfwi_prior.acoustic import forward
+
+    torch.cuda.set_device(0)
+    torch.set_num_threads(4)
+    x = torch.full((70, 70), 2000.0, device="cuda", requires_grad=True)
+    torch.manual_seed(7)
+    cotangent = torch.randn(5, 1000, 70, device="cuda") / (5 * 1000 * 70)
+    reference = forward(x, backend="cupy")
+    reference_gradient = torch.autograd.grad(reference, x, cotangent)[0]
+    for block_size in [20, 25]:
+        native = forward(x, backend="torch", block_size=block_size)
+        gradient = torch.autograd.grad(native, x, cotangent)[0]
+        assert native.dtype == torch.float32 and gradient.dtype == x.dtype
+        torch.testing.assert_close(native, reference, rtol=1e-6, atol=1e-10)
+        torch.testing.assert_close(gradient, reference_gradient, rtol=1e-5, atol=1e-10)

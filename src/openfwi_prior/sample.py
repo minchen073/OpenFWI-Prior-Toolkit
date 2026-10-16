@@ -40,7 +40,7 @@ def load_prior(path, device="cuda:0"):
 
 @torch.no_grad()
 def sample_edm(
-    model, count=4, steps=40, seed=42, sigma_min=0.002, sigma_max=80.0, rho=7.0
+    model, count=4, steps=18, seed=42, sigma_min=0.002, sigma_max=80.0, rho=7.0
 ):
     """Integrate the unconditional probability-flow ODE with Heun's method."""
     if count < 1 or steps < 2 or not 0 < sigma_min < sigma_max or rho <= 0:
@@ -68,6 +68,37 @@ def sample_edm(
             x = x + (following - current) * (derivative + next_derivative) / 2
         else:
             x = trial
+    if not torch.isfinite(x).all():
+        raise FloatingPointError("Sampling produced non-finite values")
+    return x
+
+
+def vp_schedule(steps=1000, device="cpu", beta_min=0.1, beta_d=19.9, t_min=1e-3):
+    """Return reverse VP times and cumulative signal variances, ending at t=0."""
+    if steps < 2 or beta_min <= 0 or beta_d < 0 or not 0 < t_min < 1:
+        raise ValueError("Invalid VP schedule parameters")
+    times = torch.linspace(1, t_min, steps, device=device, dtype=torch.float64)
+    times = torch.cat([times, times.new_zeros(1)])
+    alpha_bar = torch.exp(-beta_min * times - 0.5 * beta_d * times.square())
+    return times, alpha_bar
+
+
+@torch.no_grad()
+def sample_vp_ddim(model, count=4, steps=1000, seed=42):
+    """Deterministic DDIM (eta=0) on the continuous VP schedule using an EDM prior."""
+    if count < 1:
+        raise ValueError("count must be positive")
+    device = next(model.parameters()).device
+    _, alpha_bar = vp_schedule(steps=steps, device=device)
+    signal = alpha_bar.sqrt().float()
+    noise = (1 - alpha_bar).sqrt().float()
+    generator = torch.Generator(device=device).manual_seed(seed)
+    x = torch.randn(count, 1, 70, 70, generator=generator, device=device) * noise[0]
+    for i in range(steps):
+        sigma = noise[i] / signal[i]
+        denoised = model(x / signal[i], sigma.expand(count)).float()
+        epsilon = (x - signal[i] * denoised) / noise[i]
+        x = signal[i + 1] * denoised + noise[i + 1] * epsilon
     if not torch.isfinite(x).all():
         raise FloatingPointError("Sampling produced non-finite values")
     return x
@@ -107,21 +138,49 @@ def main():
     parser.add_argument("--checkpoint", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--num-samples", type=int, default=4)
-    parser.add_argument("--steps", type=int, default=40)
+    parser.add_argument(
+        "--sampler", choices=["edm-heun", "vp-ddim"], default="edm-heun"
+    )
+    parser.add_argument(
+        "--steps", type=int, help="Default: 18 for EDM Heun, 1000 for VP DDIM"
+    )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--device", default="cuda:0")
     args = parser.parse_args()
     if args.output.exists():
         raise FileExistsError(f"Choose a new output directory: {args.output}")
     model, metadata = load_prior(args.checkpoint, args.device)
-    samples = sample_edm(
-        model,
-        count=args.num_samples,
-        steps=args.steps,
-        seed=args.seed,
-        sigma_min=model.sigma_min,
-        sigma_max=model.sigma_max,
+    steps = (
+        args.steps
+        if args.steps is not None
+        else (18 if args.sampler == "edm-heun" else 1000)
     )
+    common = dict(count=args.num_samples, steps=steps, seed=args.seed)
+    if args.sampler == "edm-heun":
+        samples = sample_edm(
+            model, sigma_min=model.sigma_min, sigma_max=model.sigma_max, **common
+        )
+        schedule = {
+            "rho": 7.0,
+            "sigma_min": model.sigma_min,
+            "sigma_max": model.sigma_max,
+            "denoiser_evaluations": 2 * steps - 1,
+        }
+    else:
+        samples = sample_vp_ddim(model, **common)
+        times, alpha_bar = vp_schedule(steps)
+        sigmas = ((1 - alpha_bar) / alpha_bar).sqrt()
+        schedule = {
+            "beta_min": 0.1,
+            "beta_d": 19.9,
+            "t_max": 1.0,
+            "t_min": 0.001,
+            "terminal_time": 0.0,
+            "eta": 0.0,
+            "sigma_max": sigmas[0].item(),
+            "last_denoiser_sigma": sigmas[-2].item(),
+            "denoiser_evaluations": steps,
+        }
     normalized = samples.cpu().numpy()[:, 0]
     norm = metadata["normalization"]
     velocity = normalized * norm["scale_m_s"] + norm["center_m_s"]
@@ -134,11 +193,9 @@ def main():
         {
             "seed": args.seed,
             "num_samples": args.num_samples,
-            "steps": args.steps,
-            "sampler": "EDM probability-flow ODE, Heun",
-            "rho": 7.0,
-            "sigma_min": model.sigma_min,
-            "sigma_max": model.sigma_max,
+            "steps": steps,
+            "sampler": args.sampler,
+            "schedule": schedule,
             "saved_values_clipped": False,
         }
     )
