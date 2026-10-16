@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "openfwi-prior-toolkit"
+version = "0.1.0"
+description = "Acoustic forward and adjoint operators and unconditional EDM velocity priors"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24,<3", "scipy>=1.10", "torch>=2.4", "PyYAML>=6", "matplotlib>=3.7"]
+
+[project.optional-dependencies]
+cuda12 = ["cupy-cuda12x>=13,<14"]
+test = ["pytest>=8"]
+
+[project.scripts]
+openfwi-train = "openfwi_prior.train:main"
+openfwi-sample = "openfwi_prior.sample:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

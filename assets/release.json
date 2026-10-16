@@ -1,0 +1,29 @@
+{
+  "release_url": "https://github.com/minchen073/OpenFWI-Prior-Toolkit/releases/tag/v0.1.0",
+  "files": {
+    "assets/examples/FlatVel-B.npz": {
+      "url": "https://github.com/minchen073/OpenFWI-Prior-Toolkit/releases/download/v0.1.0/FlatVel-B.npz"
+    },
+    "assets/checkpoints/FlatVel-B_EDM_ema_400k.pt": {
+      "url": "https://github.com/minchen073/OpenFWI-Prior-Toolkit/releases/download/v0.1.0/FlatVel-B_EDM_ema_400k.pt"
+    },
+    "assets/examples/FlatFault-B.npz": {
+      "url": "https://github.com/minchen073/OpenFWI-Prior-Toolkit/releases/download/v0.1.0/FlatFault-B.npz"
+    },
+    "assets/checkpoints/FlatFault-B_EDM_ema_400k.pt": {
+      "url": "https://github.com/minchen073/OpenFWI-Prior-Toolkit/releases/download/v0.1.0/FlatFault-B_EDM_ema_400k.pt"
+    },
+    "assets/examples/CurveVel-B.npz": {
+      "url": "https://github.com/minchen073/OpenFWI-Prior-Toolkit/releases/download/v0.1.0/CurveVel-B.npz"
+    },
+    "assets/checkpoints/CurveVel-B_EDM_ema_400k.pt": {
+      "url": "https://github.com/minchen073/OpenFWI-Prior-Toolkit/releases/download/v0.1.0/CurveVel-B_EDM_ema_400k.pt"
+    },
+    "assets/examples/CurveFault-B.npz": {
+      "url": "https://github.com/minchen073/OpenFWI-Prior-Toolkit/releases/download/v0.1.0/CurveFault-B.npz"
+    },
+    "assets/checkpoints/CurveFault-B_EDM_ema_400k.pt": {
+      "url": "https://github.com/minchen073/OpenFWI-Prior-Toolkit/releases/download/v0.1.0/CurveFault-B_EDM_ema_400k.pt"
+    }
+  }
+}

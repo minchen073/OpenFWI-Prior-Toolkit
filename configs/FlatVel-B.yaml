@@ -1,0 +1,119 @@
+family: FlatVel-B
+seed: 42
+device: cuda:0
+data:
+  root: data/FlatVel-B
+  train_files:
+  - model1.npy
+  - model2.npy
+  - model3.npy
+  - model4.npy
+  - model5.npy
+  - model6.npy
+  - model7.npy
+  - model8.npy
+  - model9.npy
+  - model10.npy
+  - model11.npy
+  - model12.npy
+  - model13.npy
+  - model14.npy
+  - model15.npy
+  - model16.npy
+  - model17.npy
+  - model18.npy
+  - model19.npy
+  - model20.npy
+  - model21.npy
+  - model22.npy
+  - model23.npy
+  - model24.npy
+  - model25.npy
+  - model26.npy
+  - model27.npy
+  - model28.npy
+  - model29.npy
+  - model30.npy
+  - model31.npy
+  - model32.npy
+  - model33.npy
+  - model34.npy
+  - model35.npy
+  - model36.npy
+  - model37.npy
+  - model38.npy
+  - model39.npy
+  - model40.npy
+  - model41.npy
+  - model42.npy
+  - model43.npy
+  - model44.npy
+  - model45.npy
+  - model46.npy
+  - model47.npy
+  - model48.npy
+  validation_files:
+  - model49.npy
+  - model50.npy
+  - model51.npy
+  - model52.npy
+  - model53.npy
+  - model54.npy
+  - model55.npy
+  - model56.npy
+  - model57.npy
+  - model58.npy
+  - model59.npy
+  - model60.npy
+  samples_per_file: 500
+  center_m_s: 3000.0
+  scale_m_s: 1500.0
+model:
+  model_type: DhariwalUNet
+  img_resolution: 70
+  img_channels: 1
+  label_dim: 0
+  model_channels: 64
+  channel_mult:
+  - 1
+  - 2
+  - 3
+  - 4
+  channel_mult_emb: 4
+  num_blocks: 2
+  attn_resolutions:
+  - 36
+  - 18
+  - 9
+  dropout: 0.0
+  label_dropout: 0.0
+  sigma_min: 0.002
+  sigma_max: 80.0
+  sigma_data: 0.5
+  use_fp16: true
+edm_loss:
+  p_mean: -1.2
+  p_std: 1.2
+  sigma_data: 0.5
+training:
+  total_steps: 400000
+  batch_size: 32
+  num_workers: 4
+  lr: 0.0001
+  betas:
+  - 0.9
+  - 0.999
+  weight_decay: 0.0
+  warmup_steps: 500
+  grad_clip: 1.0
+  mixed_precision: fp16
+  ema_halflife_nimg: 204800
+  ema_rampup_ratio: 0.05
+  log_every: 100
+  validation_every: 5000
+  validation_max_batches: 20
+  save_every: 50000
+  resume: null
+output:
+  root: outputs/training
+  run_name: FlatVel-B

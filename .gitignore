@@ -1,0 +1,11 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+.venv/
+build/
+dist/
+outputs/
+data/
+assets/checkpoints/*.pt
+assets/examples/*.npz

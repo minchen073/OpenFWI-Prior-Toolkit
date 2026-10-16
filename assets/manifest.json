@@ -1,0 +1,61 @@
+{
+  "format_version": 1,
+  "files": {
+    "assets/examples/FlatVel-B.npz": {
+      "sha256": "b8dc1e3a6e85c647dfda481c4aa69a93db816e386548e789514bee86436a038f",
+      "bytes": 1256271,
+      "family": "FlatVel-B",
+      "sample_index": 454,
+      "velocity_source": "model60.npy",
+      "seismic_source": "data60.npy"
+    },
+    "assets/checkpoints/FlatVel-B_EDM_ema_400k.pt": {
+      "family": "FlatVel-B",
+      "step": 400000,
+      "bytes": 101944469,
+      "sha256": "3e15bd6d68964ab56d7a1e511e0afdd62ad73bd96cf01146a991d9ac4a6c8642"
+    },
+    "assets/examples/FlatFault-B.npz": {
+      "sha256": "2744bf36b92efd09a790e6f9e24b2e42f72bec1e267796520152bfa6fef4b59d",
+      "bytes": 1269032,
+      "family": "FlatFault-B",
+      "sample_index": 434,
+      "velocity_source": "vel6_1_35.npy",
+      "seismic_source": "seis6_1_35.npy"
+    },
+    "assets/checkpoints/FlatFault-B_EDM_ema_400k.pt": {
+      "family": "FlatFault-B",
+      "step": 400000,
+      "bytes": 101945337,
+      "sha256": "a6dbd5316f35caab4dda3420d99a4743176cd5c9e04441b8015361d5d10bde69"
+    },
+    "assets/examples/CurveVel-B.npz": {
+      "sha256": "21552412d62e238a5bf6225d927c7fab8f1f454db270bbdbd1e35fba8cbaa57e",
+      "bytes": 1277022,
+      "family": "CurveVel-B",
+      "sample_index": 475,
+      "velocity_source": "model60.npy",
+      "seismic_source": "data60.npy"
+    },
+    "assets/checkpoints/CurveVel-B_EDM_ema_400k.pt": {
+      "family": "CurveVel-B",
+      "step": 400000,
+      "bytes": 101944903,
+      "sha256": "ac4d8e43943e28074b3c8a34affdb51534b07b42f09f71083e8ee4a26b09af3e"
+    },
+    "assets/examples/CurveFault-B.npz": {
+      "sha256": "800f3d21bfa78a9c876f240874b9d82c2009e177350763fd5c83f0f5a11e34d2",
+      "bytes": 1286539,
+      "family": "CurveFault-B",
+      "sample_index": 449,
+      "velocity_source": "vel6_1_35.npy",
+      "seismic_source": "seis6_1_35.npy"
+    },
+    "assets/checkpoints/CurveFault-B_EDM_ema_400k.pt": {
+      "family": "CurveFault-B",
+      "step": 400000,
+      "bytes": 101945771,
+      "sha256": "cdee78351706403b7c958ed3f4809636056fee851bbd2bf7e6bb2a4c900110ff"
+    }
+  }
+}
